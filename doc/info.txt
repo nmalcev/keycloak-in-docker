@@ -1,0 +1,183 @@
+- hardcode url paths.
+Absolutly not a hostname agnostic solution
+
+
+Once Keycloak server is running you can open it’s UI using the following URLs.
+    Go to http://localhost:8080/auth/ and create the initial admin user.
+    Go to http://localhost:8080/auth/admin and log in as admin to the admin console.
+
+docker run -e KEYCLOAK_USER=dodo -e KEYCLOAK_PASSWORD=idol -p 8080:8080 jboss/keycloak
+docker run -e KEYCLOAK_USER=admin -e KEYCLOAK_PASSWORD=admin -e DB_VENDOR=H2 -p 8080:8080 --name sso jboss/keycloak-examples
+
+********************************************************************************************************
+
+http://localhost:18080/auth/js/keycloak.js
+https://cagline.medium.com/authenticate-and-authorize-react-routes-component-with-keycloak-666e85662636
+https://github.com/stianst/keycloak-docker/blob/master/server/README.md
+
+docker exec -it kc /opt/jboss/keycloak/bin/standalone.sh \
+-Djboss.socket.binding.port-offset=100 -Dkeycloak.migration.action=export \
+-Dkeycloak.migration.provider=singleFile \
+-Dkeycloak.migration.realmName=my_realm \
+-Dkeycloak.migration.usersExportStrategy=REALM_FILE \
+-Dkeycloak.migration.file=/tmp/my_realm.json
+
+********************************************************************************************************
+var conf = {
+	clientId: 'react-app',
+	"realm": "eutrophication",
+	"auth-server-url": "http://localhost:18080/auth/",
+	"ssl-required": "external",
+	"resource": "react-app",
+	"public-client": true,
+	"confidential-port": 0,
+	'enable-cors': true,
+};
+var keycloak = window.Keycloak(conf);
+window.keycloak = keycloak;
+
+///////////////////////////////////////////////////////////////////////////////////
+// The first time: 2 reloads
+
+window.keycloak.init({
+	onLoad: 'check-sso',
+	//checkLoginIframeInterval: 10000,
+	//onLoad: 'login-required',
+	checkLoginIframe: false,
+}).then(authenticated => {
+	console.log('Keycloack auth %s', authenticated);
+	console.dir(window.keycloak.tokenParsed);
+	if (authenticated) {
+		window.localStorage['token'] = window.keycloak.token
+		window.localStorage['refreshToken'] =window.keycloak.refreshToken;
+	}
+}).catch(e => {
+	console.log('Keycloak exc');
+	console.dir(e);
+})
+window.keycloak.login()
+
+
+>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+frame-src 'self' http://localhost:18080; frame-ancestors 'self' https://localhost:18080; object-src 'none';
+>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+// Next times: Without reloads
+if (window.localStorage['token']) {
+	window.keycloak.init({
+		token: window.localStorage['token'],
+		refreshToken: window.localStorage['refreshToken'],
+		checkLoginIframe: false,
+	}).then(authenticated => {
+		console.log('Keycloack auth %s', authenticated);
+		console.dir(window.keycloak.tokenParsed);
+	}).catch(e => {
+		console.log('Keycloak exc');
+		console.dir(e);
+	})
+} else {
+	window.keycloak.init({
+		onLoad: 'check-sso',
+		checkLoginIframe: false,
+	}).then(authenticated => {
+		console.log('Keycloack auth %s', authenticated);
+		console.dir(window.keycloak.tokenParsed);
+	}).catch(e => {
+		console.log('Keycloak exc');
+		console.dir(e);
+	})
+
+}
+>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+window.keycloak.init({
+	onLoad: 'check-sso',
+	checkLoginIframe: false,
+}).then(authenticated => {
+	console.log('Keycloack auth %s', authenticated);
+	console.dir(window.keycloak.tokenParsed);
+}).catch(e => {
+	console.log('Keycloak exc');
+	console.dir(e);
+})
+
+
+>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+
+>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+// LOGIN WORKFLOW:
+// encodeURIComponent()
+var url = 'http://localhost:18080/auth/realms/eutrophication/protocol/openid-connect/token'
+fetch(url, {
+	method: 'POST',
+	mode: 'cors',
+	headers: {
+      'Content-Type': 'application/x-www-form-urlencoded',
+    },
+	body: 'client_id=react-app&username=nmaltsev&password=welcom&grant_type=password',
+}).then(response => {
+	return response.json();
+}).catch(er => {
+	console.log('Req exc');
+	console.dir(er);
+	return null;
+}).then((resp) => {
+	if (!resp) {
+		console.log('Error1');
+		return;
+	}
+	console.log('Received');
+	console.dir(resp);
+	
+	fetch(url, {
+		method: 'POST',
+		mode: 'cors',
+		headers: {
+		  'Content-Type': 'application/x-www-form-urlencoded',
+		},
+		body: `client_id=react-app&grant_type=refresh_token&refresh_token=${resp.refresh_token}`,
+	}).then(response => {
+		return response.json();
+	}).catch(er => {
+		console.log('Req exc2');
+		console.dir(er);
+		return null;
+	}).then((resp) => {
+		if (!resp) {
+			console.log('Error2');
+			return;
+		}
+		console.log('Received');
+		console.dir(resp);
+		window.localStorage['token'] = resp.refresh_token;
+		window.localStorage['refreshToken'] = resp.refresh_token;
+		
+		window.keycloak.init({
+			token: resp.refresh_token,
+			refreshToken: resp.refresh_token,
+			checkLoginIframe: false,
+		}).then(authenticated => {
+			console.log('Keycloack auth %s', authenticated);
+			console.dir(window.keycloak.tokenParsed);
+		}).catch(e => {
+			console.log('Keycloak exc');
+			console.dir(e);
+		})
+	})
+})
+// ....
+if (window.localStorage['token']) {
+	window.keycloak.init({
+		token: window.localStorage['token'],
+		refreshToken: window.localStorage['refreshToken'],
+		checkLoginIframe: false,
+	}).then(authenticated => {
+		console.log('Keycloack auth %s', authenticated);
+		console.dir(window.keycloak.tokenParsed);
+	}).catch(e => {
+		console.log('Keycloak exc');
+		console.dir(e);
+	})
+}
+>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+curl -X POST -k -H 'Content-Type: application/x-www-form-urlencoded' -i 'http://localhost:8080/auth/realms/eutrophication/protocol/openid-connect/token' --data 'client_id=react-app&username=nmaltsev&password=welcom&grant_type=password'
+>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+

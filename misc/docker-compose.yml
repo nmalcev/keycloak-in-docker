@@ -1,0 +1,49 @@
+version: '3.7'
+
+
+services:
+  app_proxy:
+    container_name: app_proxy
+    stdin_open: true
+    build:
+      context: ../
+      dockerfile: ./proxy/${ENV}.Dockerfile
+    ports:
+    # TODO get port numbers from env files
+      - 9080:80
+      - 9443:443
+    networks:
+      - app_net
+    depends_on: 
+      - app_keycloak
+
+
+  app_keycloak: 
+    container_name: app_keycloak
+    image: "jboss/keycloak:12.0.4"
+    environment: 
+      KEYCLOAK_USER: ${KEYCLOAK_USER}
+      KEYCLOAK_PASSWORD: ${KEYCLOAK_PASSWORD}
+    #   KEYCLOAK_HTTPS_PORT: 9443
+    #   KEYCLOAK_HOSTNAME: 'localhost:94430'
+    #   KEYCLOAK_IMPORT_REALM: ${KEYCLOAK_IMPORT}
+      PROXY_ADDRESS_FORWARDING: 'true'
+      ## Bad configuration: Does not work behind proxy. Redirects to localhost in front-end
+      # TODO get port numbers from env files
+      KEYCLOAK_FRONTEND_URL: "https://localhost:9443/auth"
+    # command: "-b 0.0.0.0 -Dkeycloak.import=/opt/jboss/keycloak/realm-api.json,/opt/jboss/keycloak/realm-app.json"
+    command:
+      -Djboss.http.port=8080
+      -Djboss.bind.address=0.0.0.0
+    # There is no need to expose the ports
+    # ports:
+    #    - 8080
+    #    - 8443
+    #    - 9990
+    restart: on-failure
+    networks:
+      - app_net
+
+
+networks:
+  app_net:
