@@ -1,5 +1,5 @@
 FROM nginx:1.19.6-alpine@sha256:c2ce58e024275728b00a554ac25628af25c54782865b3487b11c21cafb7fabda
-LABEL NM <yandex_zombie@gmail.com>
+LABEL NM <n0668674711@gmail.com>
 
 ENV KEYCLOAK_PORT=8080
 ENV NGINX_SERVER_NAME="demo.net"
